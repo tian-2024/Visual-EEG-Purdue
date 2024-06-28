@@ -165,31 +165,31 @@ def build_response(results, label):
         channel_dis_fig.add_traces(result["channel_dis_fig"])
 
     fig.update_layout(
-        title="单个样本-通道数值",
+        title="样本通道数值",
         xaxis_title="Time",
         yaxis_title="Value",
         title_x=0.5,  # 设置标题居中
     )
 
     channel_range_fig.update_layout(
-        title="单个样本-全部通道-最值范围",
+        title="通道最值范围",
         xaxis_title="Channel",
         yaxis_title="Value",
         title_x=0.5,  # 设置标题居中
     )
     sample_range_fig.update_layout(
-        title="全部样本-最值范围",
+        title="全部样本最值范围",
         xaxis_title="Trail",
         yaxis_title="Value",
         title_x=0.5,  # 设置标题居中
     )
     similarity_matrix_fig.update_layout(
-        title="单个样本-通道相似度矩阵",
+        title="通道相似度矩阵",
         title_x=0.5,  # 设置标题居中
     )
 
     sim_mat_seq_fig.update_layout(
-        title="单个样本-时间段-通道相似度矩阵",
+        title="分段相似度矩阵",
         title_x=0.5,  # 设置标题居中
         showlegend=False,
         height=subplot_height,  # 设置子图高度
@@ -200,17 +200,17 @@ def build_response(results, label):
     for i in range(seq_num):
         sim_mat_seq_fig.update_yaxes(scaleanchor="x" + str(i + 1), scaleratio=1)
     sim_mat_dis_fig.update_layout(
-        title="单个样本-通道相似度分布",
+        title="通道相似度分布",
         title_x=0.5,  # 设置标题居中
     )
 
     sample_dis_fig.update_layout(
-        title="单个样本-数值分布",
+        title="样本数值分布",
         title_x=0.5,  # 设置标题居中
     )
 
     channel_dis_fig.update_layout(
-        title="单个样本-通道数值分布",
+        title="通道数值分布",
         title_x=0.5,  # 设置标题居中
     )
     response = {
