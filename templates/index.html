@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .fixed-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: white;
+            z-index: 1000;
+            padding: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .slider-container,
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+        }
+
+        label {
+            margin-right: 10px;
+        }
+
+        input[type="range"] {
+            margin-right: 10px;
+        }
+
+        .plot-container {
+            margin-top: 100px;
+            /* 确保图表不被固定容器覆盖 */
+        }
+
+        .plot {
+            width: 60%;
+        }
+
+        .square-plot {
+
+            width: 40%;
+            /*正方形 */
+            aspect-ratio: 1;
+            /*正方形 */
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="fixed-container">
+        <div class="container">
+
+            <div class="checkbox-container">
+                <label><input type="checkbox" id="dataset1" checked> 原始数据(0.5s)</label>
+                <label><input type="checkbox" id="dataset2"> 通道归一化</label>
+                <label><input type="checkbox" id="dataset3"> 样本归一化</label>
+                <label><input type="checkbox" id="dataset4"> 原始数据(2s)</label>
+            </div>
+            <div class="slider-container">
+                <label id="eegLabel">&nbsp;标签: <span id="eegLabelValue"> </span> </label>
+                <label for="rowSlider">EEG 序号:</label>
+                <input type="range" id="rowSlider" name="rowSlider" min="0" max="39999" value="2"
+                    oninput="updateRowValue(this.value)">
+                <input type="number" id="rowValue" name="rowValue" min="0" max="39999" value="2"
+                    oninput="updateRowSlider(this.value)"><!-- 新增的样本标签 -->
+
+            </div>
+            <div class="slider-container">
+                <label for="channelSlider">通道:</label>
+                <input type="range" id="channelSlider" name="channelSlider" min="0" max="95" value="95"
+                    oninput="updateChannelValue(this.value)">
+                <input type="number" id="channelValue" name="channelValue" min="0" max="95" value="95"
+                    oninput="updateChannelSlider(this.value)">
+            </div>
+        </div>
+
+    </div>
+    </div>
+    <div class=" plot-container">
+        <div class="row">
+            <div id="sample_distribution_range" class="square-plot"></div>
+            <div id="channel_distribution_range" class="plot"></div>
+        </div>
+        <div class="row">
+            <div id="similarity_matrix_distribution_plot" class="square-plot"></div>
+            <div id="similarity_matrix_plot" class="plot"></div>
+        </div>
+        <div class="row">
+            <div id="channel_plot_range" class="square-plot"></div>
+            <div id="plot" class="plot"></div>
+        </div>
+        <div id="sim_mat_seq_plot"></div>
+        <div id="trail_plot_range"></div>
+    </div>
+
+    <script>
+        let updatePlotTimeout;
+
+        function startUpdatePlotTimer() {
+            clearTimeout(updatePlotTimeout);
+            updatePlotTimeout = setTimeout(updatePlot, 20);  // 延迟300毫秒后更新图表
+        }
+
+        function updateRowValue(value) {
+            document.getElementById('rowValue').value = value;
+            // fetchSampleLabel(value);
+
+            startUpdatePlotTimer();
+        }
+
+        function updateRowSlider(value) {
+            document.getElementById('rowSlider').value = value;
+            // fetchSampleLabel(value);
+
+            startUpdatePlotTimer();
+        }
+
+        function updateChannelValue(value) {
+            document.getElementById('channelValue').value = value;
+            startUpdatePlotTimer();
+        }
+
+        function updateChannelSlider(value) {
+            document.getElementById('channelSlider').value = value;
+            startUpdatePlotTimer();
+        }
+        function updatePlot() {
+            let row = document.getElementById('rowSlider').value;
+            let channel = document.getElementById('channelSlider').value;
+
+
+            document.getElementById('rowValue').innerText = row;
+            document.getElementById('channelValue').innerText = channel;
+
+            let selectedDatasets = {
+                raw_s1: document.getElementById('dataset1').checked,
+                time_s1: document.getElementById('dataset2').checked,
+                trail_s1: document.getElementById('dataset3').checked,
+                raw_full: document.getElementById('dataset4').checked,
+            };
+
+            $.ajax({
+                url: '/update_plot',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ row: row, channel: channel, datasets: selectedDatasets }),
+                success: function (response) {
+                    let plotDiv = document.getElementById('plot');
+                    let plotChannelRangeDiv = document.getElementById('channel_plot_range');
+
+                    let plotTrailRangeDiv = document.getElementById('trail_plot_range');
+                    let similarityMatrixPlotDiv = document.getElementById('similarity_matrix_plot');  // 新增的相似度矩阵图表容器
+                    let similarityMatrixDistributionPlotDiv = document.getElementById('similarity_matrix_distribution_plot');  // 新增的相似度矩阵分布图表容器
+                    let sampleDistributionRangeDiv = document.getElementById('sample_distribution_range');  // 新增的样本分布图表容器
+                    let channelDistributionRangeDiv = document.getElementById('channel_distribution_range');  // 新增的通道分布图表容器
+                    let simMatSeqPlotDiv = document.getElementById('sim_mat_seq_plot');  // 新增的相似度矩阵序列图表容器
+
+
+                    document.getElementById('eegLabelValue').innerText = response.label;  // 更新样本标签
+
+
+
+                    // 更新第一个图表
+                    Plotly.react(plotDiv, response.data, response.layout);
+                    // 更新相似度矩阵图
+                    Plotly.react(similarityMatrixPlotDiv, response.similarity_matrix_data, {
+                        ...response.similarity_matrix_layout,
+                        yaxis: { autorange: 'reversed' },
+                        yaxis2: { autorange: 'reversed' },
+                    });
+
+                    // 更新相似度矩阵序列图
+                    Plotly.react(simMatSeqPlotDiv, response.sim_mat_seq_data, {
+                        ...response.sim_mat_seq_layout,
+                        yaxis: { autorange: 'reversed' },
+                        yaxis2: { autorange: 'reversed' },
+                        yaxis3: { autorange: 'reversed' },
+
+                        yaxis4: { autorange: 'reversed' },
+                        yaxis5: { autorange: 'reversed' },
+                        yaxis6: { autorange: 'reversed' },
+
+
+
+                        yaxis7: { autorange: 'reversed' },
+                        yaxis8: { autorange: 'reversed' },
+
+                    });
+
+                    // 更新相似度矩阵分布图
+                    Plotly.react(similarityMatrixDistributionPlotDiv, response.sim_mat_dis_data, {
+                        ...response.sim_mat_dis_layout
+                    });
+
+                    // 更新样本分布图
+                    Plotly.react(sampleDistributionRangeDiv, response.sample_dis_data, {
+                        ...response.sample_dis_layout
+                    });
+                    // 更新通道分布图
+                    Plotly.react(channelDistributionRangeDiv, response.channel_dis_data, {
+                        ...response.channel_dis_layout
+                    });
+
+                    // 更新第二个图表
+                    // Plotly.react(plotChannelMaxMinDiv, response.channel_max_min_data, response.channel_max_min_layout);
+                    Plotly.react(plotChannelRangeDiv, response.channel_range_data, response.channel_range_layout);
+
+                    // // 更新第三个图表
+                    // Plotly.react(plotTrailMaxMinDiv, response.trail_max_min_data, response.trail_max_min_layout);
+                    Plotly.react(plotTrailRangeDiv, response.trail_range_data, response.trail_range_layout);
+
+
+                    // 添加hover事件监听器
+                    plotDiv.on('plotly_hover', function (data) {
+                        let infotext = data.points.map(function (d) {
+                            return `x: ${d.x}`;
+                        });
+
+                        // 显示x轴坐标信息
+                        document.getElementById('hoverinfo').innerHTML = infotext.join('<br>');
+                    });
+
+                    // 清除hover信息
+                    plotDiv.on('plotly_unhover', function (data) {
+                        document.getElementById('hoverinfo').innerHTML = '';
+                    });
+
+                    // plotChannelMaxMinDiv.on('plotly_hover', function (data) {
+                    //     let infotext = data.points.map(function (d) {
+                    //         return `Channel: ${d.x}<br>Max: ${d.y.max}<br>Min: ${d.y.min}`;
+                    //     });
+
+                    //     // 显示x轴坐标信息
+                    //     document.getElementById('hoverinfo').innerHTML = infotext.join('<br>');
+                    // });
+
+                    // plotChannelMaxMinDiv.on('plotly_unhover', function (data) {
+                    //     document.getElementById('hoverinfo').innerHTML = '';
+                    // });
+
+                    plotChannelRangeDiv.on('plotly_hover', function (data) {
+                        let infotext = data.points.map(function (d) {
+                            return `Channel: ${d.x}<br>Range: ${d.y.range}`;
+                        });
+
+                        // 显示x轴坐标信息
+                        document.getElementById('hoverinfo').innerHTML = infotext.join('<br>');
+                    });
+
+                    plotChannelRangeDiv.on('plotly_unhover', function (data) {
+                        document.getElementById('hoverinfo').innerHTML = '';
+                    });
+
+                    // plotTrailMaxMinDiv.on('plotly_hover', function (data) {
+                    //     let infotext = data.points.map(function (d) {
+                    //         return `Trail: ${d.x}<br>Max: ${d.y.max}<br>Min: ${d.y.min}`;
+                    //     });
+
+                    //     // 显示x轴坐标信息
+                    //     document.getElementById('hoverinfo').innerHTML = infotext.join('<br>');
+                    // });
+
+                    // plotTrailMaxMinDiv.on('plotly_unhover', function (data) {
+                    //     document.getElementById('hoverinfo').innerHTML = '';
+                    // });
+                    plotTrailRangeDiv.on('plotly_hover', function (data) {
+                        let infotext = data.points.map(function (d) {
+                            return `Trail: ${d.x}<br>Range: ${d.y.range}`;
+                        });
+
+                        // 显示x轴坐标信息
+                        document.getElementById('hoverinfo').innerHTML = infotext.join('<br>');
+                    });
+
+                    plotTrailRangeDiv.on('plotly_unhover', function (data) {
+                        document.getElementById('hoverinfo').innerHTML = '';
+                    });
+
+
+                }
+            });
+        }
+
+        $(document).ready(function () {
+            updatePlot();
+
+            $('#dataset1, #dataset2, #dataset3, #dataset4').change(function () {
+                updatePlot();
+            });
+        });
+    </script>
+</body>
+
+</html>
